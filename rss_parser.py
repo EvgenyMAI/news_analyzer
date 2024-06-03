@@ -1,27 +1,58 @@
-import os
 import httpx
 import asyncio
 import feedparser
+import re
+import os
+import hashlib
 from collections import deque
 from newspaper import Article
-import hashlib
+
+
+
+def load_companies(file_path, encoding='utf-8'):
+    with open(file_path, "r", encoding=encoding) as file:
+        companies = file.read().splitlines()
+    return companies
+
+
+def find_russian_companies(text, companies_file):
+
+    companies = load_companies(companies_file)
+
+    pattern = r'[А-ЯЁ][а-яё]+(?:\s+[А-ЯЁ][а-яё]+)*'
+    matches = re.findall(pattern, text)
+
+    relevant_companies = [match for match in matches if match in companies]
+
+    return relevant_companies
 
 async def fetch_article(httpx_client, url):
-    """Fetch the full article text from the given URL."""
     try:
         response = await httpx_client.get(url)
         response.raise_for_status()
         article = Article(url)
         article.download()
         article.parse()
-        return article.text
+
+        # Получаем текст статьи
+        article_text = article.text
+
+        # Разбиваем текст на предложения
+        sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', article_text)
+
+        # Оставляем только первое предложение и удаляем абзацы
+        first_sentence = sentences[0]
+        remaining_text = ' '.join(sentences[1:]) if len(sentences) > 1 else ''
+
+        # Склеиваем первое предложение и оставшуюся часть текста
+        article_text_processed = f"{first_sentence}. {remaining_text}"
+
+        return article_text_processed
     except Exception as e:
         print(f"Error fetching article: {e}")
         return ''
 
-async def rss_parser(httpx_client, posted_q, output_dir, rss_links):
-    """RSS feed parser"""
-
+async def rss_parser(httpx_client, posted_q, output_dir, rss_links, companies_file):
     os.makedirs(output_dir, exist_ok=True)
 
     print("Starting to parse RSS feeds")
@@ -50,41 +81,44 @@ async def rss_parser(httpx_client, posted_q, output_dir, rss_links):
 
                 news_text = f'{title}\n{full_text}'
 
-                # Проверка на дубликаты с помощью хеширования
                 news_hash = hashlib.sha256(title.encode('utf-8')).hexdigest()
                 if news_hash in posted_q:
                     continue
 
-                # Генерация уникального имени файла
                 filename = f"{news_hash}.txt"
                 filepath = os.path.join(output_dir, filename)
                 print(f"\nSaving news: {title}\nlink: {link}")
 
-                # Сохранение в файл
                 with open(filepath, "w", encoding='utf-8') as file:
                     file.write(news_text)
 
-                posted_q.appendleft(news_hash)
+                companies = find_russian_companies(news_text, companies_file)
+                if companies:
+                    company_count = {company: companies.count(company) for company in set(companies)}
+                    with open(os.path.join(output_dir, f"{news_hash}_companies.txt"), "w", encoding='utf-8') as file:
+                        for company, count in company_count.items():
+                            file.write(f"{company}: {count}\n")
 
-        await asyncio.sleep(5)
+                posted_q.appendleft(news_hash)
 
 if __name__ == "__main__":
     rss_links = [
-        #"https://ru.investing.com/rss/news_301.rss",
-        #"https://ru.investing.com/rss/stock_Technical.rss",
-        #"https://ru.investing.com/rss/stock_Fundamental.rss",
+        # "https://ru.investing.com/rss/news_301.rss",
+        # "https://ru.investing.com/rss/stock_Technical.rss",
+        # "https://ru.investing.com/rss/stock_Fundamental.rss",
         "https://ru.investing.com/rss/stock_Indices.rss",
         "https://ru.investing.com/rss/stock_Stocks.rss",
         "https://ru.investing.com/rss/bonds_Government.rss",
         "https://ru.investing.com/rss/bonds_Corporate.rss",
         "https://ru.investing.com/rss/news_301.rss"
     ]
-    
-    # Очередь из уже опубликованных постов, чтобы их не дублировать
+
     posted_q = deque(maxlen=60)
 
     output_dir = "news"
 
-    httpx_client = httpx.AsyncClient()
+    companies_file = "companies.txt"
 
-    asyncio.run(rss_parser(httpx_client, posted_q, output_dir, rss_links))
+
+    httpx_client = httpx.AsyncClient()
+    asyncio.run(rss_parser(httpx_client, posted_q, output_dir, rss_links, companies_file))

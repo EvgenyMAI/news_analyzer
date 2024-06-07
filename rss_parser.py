@@ -115,26 +115,34 @@ async def rss_parser(httpx_client, rss_links):
 
                 news_text = f'{title}\n{full_text}'
 
+                flag = 0
+                comp = ''
                 # Проверка на упоминание компаний
                 for company in companies:
                     if company in news_text:
+                        flag = 1
+                        comp += company + ' '
                         update_mentions_file(company)
 
-                # Сохранение новости на русском языке в соответсвующую папку
-                filename = f"{news_hash}.txt"
-                filepath = os.path.join(output_dir_for_news, filename)
-                with open(filepath, "w", encoding='utf-8') as file:
-                    file.write(news_text)
+                if flag:
+                    news = comp + "\n" + news_text
 
-                # Перевод новости на английский язык и сохранение в отдельную папку
-                filename = f"{news_hash}_en.txt"
-                translated_text = translate_text(news_text)
-                filepath_en = os.path.join(output_dir_for_news_en, filename)
-                with open(filepath_en, "w", encoding='utf-8') as file:
-                    file.write(translated_text)
+                    # Сохранение новости на русском языке в соответсвующую папку
+                    filename = f"{news_hash}.txt"
+                    filepath = os.path.join(output_dir_for_news, filename)
+                    with open(filepath, "w", encoding='utf-8') as file:
+                        file.write(news)
 
-                count_parced_news += 1
-                print(f"\nSaving news: {title}\nlink: {link}")
+                    # Перевод новости на английский язык и сохранение в отдельную папку
+                    filename = f"{news_hash}_en.txt"
+                    translated_text = translate_text(news)
+                    filepath_en = os.path.join(output_dir_for_news_en, filename)
+                    with open(filepath_en, "w", encoding='utf-8') as file:
+                        file.write(translated_text)
+
+                    count_parced_news += 1
+                    print(f"\nSaving news: {title}\nlink: {link}")
+
 
         # Пятиминутное ожидание перед следующим циклом парсинга
         print(f"\n{count_parced_news} news have been parced. Waiting for 5 minutes before next parsing cycle...")

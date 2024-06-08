@@ -3,6 +3,7 @@ import httpx
 import hashlib
 import asyncio
 import feedparser
+import subprocess  # Для запуска внешнего файла
 from newspaper import Article
 from googletrans import Translator
 
@@ -143,9 +144,16 @@ async def rss_parser(httpx_client, rss_links):
                     count_parced_news += 1
                     print(f"\nSaving news: {title}\nlink: {link}")
 
+        # Проверка количества спарсенных новостей и запуск анализатора
+        if count_parced_news > 0:
+            print(f"\n{count_parced_news} news have been parsed. Starting news analysis...")
+            subprocess.run(["python", "news_analyzer.py"])
+            print("Done!")
+        else:
+            print("\n0 news have been parsed.")
 
         # Пятиминутное ожидание перед следующим циклом парсинга
-        print(f"\n{count_parced_news} news have been parced. Waiting for 5 minutes before next parsing cycle...")
+        print("Waiting for 5 minutes before next parsing cycle...")
         await asyncio.sleep(300)
 
 if __name__ == "__main__":

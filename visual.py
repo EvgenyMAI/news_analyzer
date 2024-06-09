@@ -23,7 +23,7 @@ def main():
     # Создание главного окна с темой 'flatly'
     root = tb.Window(themename="flatly")
     root.title("Обзор акций")
-    root.geometry("900x500")
+    root.geometry("1000x500")
     root.resizable(False, False)
 
     # Устанавливаем красивый шрифт
@@ -46,10 +46,10 @@ def main():
     tree.heading("Текущая цена", text="Текущая цена")
     tree.heading("Предполагаемые изменения", text="Предполагаемые изменения")
     tree.heading("Разброс", text="Разброс")
-    tree.column("Название акции", anchor='center', width=275)
-    tree.column("Текущая цена", anchor='center', width=175)
-    tree.column("Предполагаемые изменения", anchor='center', width=175)
-    tree.column("Разброс", anchor='center', width=175)
+    tree.column("Название акции", anchor='center', width=200)
+    tree.column("Текущая цена", anchor='center', width=200)
+    tree.column("Предполагаемые изменения", anchor='center', width=315)
+    tree.column("Разброс", anchor='center', width=200)
 
     # Применение стилей к таблице
     style = ttk.Style()
